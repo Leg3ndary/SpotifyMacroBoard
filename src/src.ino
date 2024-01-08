@@ -5,6 +5,11 @@ On any button press map to a func
 Have screen update on any button press
 
 Have LED's animate and react to button presses
+
+On each cycle do three things
+1. Check buttons
+2. Update screen
+3. Update Led's
 */
 
 #define SHUFFLE 4
