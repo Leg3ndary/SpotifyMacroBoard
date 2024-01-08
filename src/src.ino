@@ -39,8 +39,7 @@ void setup() {
 
     for (int i = 0; i < 7; i++) [
         pinMode(keys[i], INPUT_PULLUP);
-    
-    ]
+    }
 
     pinMode(LED, OUTPUT);
     pinMode(SCL, INPUT_PULLUP);
