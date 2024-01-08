@@ -37,7 +37,7 @@ void setup() {
     // pinMode(PAUSE_PLAY, INPUT_PULLUP);
     // pinMode(SKIP, INPUT_PULLUP);
 
-    for (int i = 0; i < 7; i++) [
+    for (int i = 0; i < 7; i++) {
         pinMode(keys[i], INPUT_PULLUP);
     }
 
