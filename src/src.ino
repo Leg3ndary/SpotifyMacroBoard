@@ -9,14 +9,22 @@
 #define SCL 19
 #define SDA 21
 
+const int keys[7] = {SHUFFLE, VOLUME_DEC, VOLUME_INC, LOOP, BACK, PAUSE_PLAY, SKIP};
+
 void setup() {
-    pinMode(SHUFFLE, INPUT_PULLUP);
-    pinMode(VOLUME_DEC, INPUT_PULLUP);
-    pinMode(VOLUME_INC, INPUT_PULLUP);
-    pinMode(LOOP, INPUT_PULLUP);
-    pinMode(BACK, INPUT_PULLUP);
-    pinMode(PAUSE_PLAY, INPUT_PULLUP);
-    pinMode(SKIP, INPUT_PULLUP);
+    // pinMode(SHUFFLE, INPUT_PULLUP);
+    // pinMode(VOLUME_DEC, INPUT_PULLUP);
+    // pinMode(VOLUME_INC, INPUT_PULLUP);
+    // pinMode(LOOP, INPUT_PULLUP);
+    // pinMode(BACK, INPUT_PULLUP);
+    // pinMode(PAUSE_PLAY, INPUT_PULLUP);
+    // pinMode(SKIP, INPUT_PULLUP);
+
+    for (int i = 0; i < 7; i++) [
+        pinMode(keys[i], INPUT_PULLUP);
+    
+    ]
+
     pinMode(LED, OUTPUT);
     pinMode(SCL, INPUT_PULLUP);
     pinMode(SDA, INPUT_PULLUP);
