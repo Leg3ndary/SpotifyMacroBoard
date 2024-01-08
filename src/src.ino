@@ -1,3 +1,12 @@
+/*
+Plans:
+On any button press map to a func
+
+Have screen update on any button press
+
+Have LED's animate and react to button presses
+*/
+
 #define SHUFFLE 4
 #define VOLUME_DEC 5
 #define VOLUME_INC 12
@@ -10,6 +19,9 @@
 #define SDA 21
 
 const int keys[7] = {SHUFFLE, VOLUME_DEC, VOLUME_INC, LOOP, BACK, PAUSE_PLAY, SKIP};
+bool keyPrevState[7] = {HIGH, HIGH, HIGH, HIGH, HIGH, HIGH, HIGH};
+bool keyState[7] = {HIGH, HIGH, HIGH, HIGH, HIGH, HIGH, HIGH};
+
 
 void setup() {
     // pinMode(SHUFFLE, INPUT_PULLUP);
@@ -30,6 +42,51 @@ void setup() {
     pinMode(SDA, INPUT_PULLUP);
 }
 
-void loop() {
+void shuffle();
+void volumeDecrease();
+void volumeIncrease();
+void repeat();
+void back();
+void pausePlay();
+void skip();
 
+void shuffle() {
+
+}
+
+void volumeDecrease() {
+
+}
+
+void volumeIncrease() {
+
+}
+
+void repeat() {
+
+}
+
+void back() {
+
+}
+
+void pausePlay() {
+
+}
+
+void skip() {
+
+}
+
+
+void (*funcs[7])() = {shuffle, volumeDecrease, volumeIncrease, repeat, back, pausePlay, skip};
+
+void loop() {
+    for (int i = 0; i < 7; i++) {
+        keyState[i] = digitalRead(keys[i]);
+        if (keyState[i] == LOW && keyPrevState[i] == HIGH) {
+            funcs[i]();
+        }
+        keyPrevState[i] = keyState[i];
+    }
 }
