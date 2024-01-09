@@ -21,10 +21,10 @@ On each cycle do three things
 #include <WiFiClientSecure.h>
 
 #define RGB_PIN 18
-#define RGB_LED_NUM 100   // 300 total
-#define BRIGHTNESS 200    // brightness range [0..255]
+#define RGB_LED_NUM 100  // 300 total
+#define BRIGHTNESS 230   // brightness range [0..255]
 #define CHIP_SET WS2812B
-#define COLOR_CODE RGB // Enum
+#define COLOR_CODE GRB  // Enum
 #define UPDATES_PER_SECOND 100
 
 #define SHUFFLE 4
@@ -47,10 +47,10 @@ SpotifyArduino spotify(sClient, spotifyId, spotifySecret,
 unsigned long delayBetweenRequests = 60000;
 unsigned long requestDueTime;
 
-const int keys[7] = {SHUFFLE, VOLUME_DEC, VOLUME_INC, LOOP,
-                     BACK,    PAUSE_PLAY, SKIP};
-bool keyPrevState[7] = {HIGH, HIGH, HIGH, HIGH, HIGH, HIGH, HIGH};
-bool keyState[7] = {HIGH, HIGH, HIGH, HIGH, HIGH, HIGH, HIGH};
+const int keys[7] = { SHUFFLE, VOLUME_DEC, VOLUME_INC, LOOP,
+                      BACK, PAUSE_PLAY, SKIP };
+bool keyPrevState[7] = { HIGH, HIGH, HIGH, HIGH, HIGH, HIGH, HIGH };
+bool keyState[7] = { HIGH, HIGH, HIGH, HIGH, HIGH, HIGH, HIGH };
 
 // Define the array of LEDs
 CRGB LEDs[RGB_LED_NUM];
@@ -59,80 +59,89 @@ CRGB LEDs[RGB_LED_NUM];
 byte a, b, c;
 
 void setup() {
-    // pinMode(SHUFFLE, INPUT_PULLUP);
-    // pinMode(VOLUME_DEC, INPUT_PULLUP);
-    // pinMode(VOLUME_INC, INPUT_PULLUP);
-    // pinMode(LOOP, INPUT_PULLUP);
-    // pinMode(BACK, INPUT_PULLUP);
-    // pinMode(PAUSE_PLAY, INPUT_PULLUP);
-    // pinMode(SKIP, INPUT_PULLUP);
+  // pinMode(SHUFFLE, INPUT_PULLUP);
+  // pinMode(VOLUME_DEC, INPUT_PULLUP);
+  // pinMode(VOLUME_INC, INPUT_PULLUP);
+  // pinMode(LOOP, INPUT_PULLUP);
+  // pinMode(BACK, INPUT_PULLUP);
+  // pinMode(PAUSE_PLAY, INPUT_PULLUP);
+  // pinMode(SKIP, INPUT_PULLUP);
 
-    for (int i = 0; i < 7; i++) {
-        pinMode(keys[i], INPUT_PULLUP);
-    }
+  for (int i = 0; i < 7; i++) {
+    pinMode(keys[i], INPUT_PULLUP);
+  }
 
-    pinMode(LED, OUTPUT);
-    pinMode(SCL, INPUT_PULLUP);
-    pinMode(SDA, INPUT_PULLUP);
+  pinMode(LED, OUTPUT);
+  pinMode(SCL, INPUT_PULLUP);
+  pinMode(SDA, INPUT_PULLUP);
 
-    Serial.begin(115200);
-    WiFi.mode(WIFI_STA);
-    WiFi.begin(SSID, SSID_PASS);
+  Serial.begin(115200);
+  WiFi.mode(WIFI_STA);
+  WiFi.begin(SSID, SSID_PASS);
 
-    FastLED.addLeds<CHIP_SET, LED, COLOR_CODE>(LEDs, RGB_LED_NUM);
-    FastLED.setBrightness(BRIGHTNESS);
-    FastLED.setMaxPowerInVoltsAndMilliamps(5, 500);
-    FastLED.clear();
-    FastLED.show();
+  FastLED.addLeds<CHIP_SET, LED, COLOR_CODE>(LEDs, RGB_LED_NUM);
+  FastLED.setBrightness(BRIGHTNESS);
+  FastLED.setMaxPowerInVoltsAndMilliamps(5, 500);
+  FastLED.clear();
+  FastLED.show();
 
-    while (WiFi.status() != WL_CONNECTED) {
-        delay(500);
-    }
+  while (WiFi.status() != WL_CONNECTED) {
+    delay(500);
+  }
 
-    sClient.setCACert(spotify_server_cert);
-    bClient.setCACert(benzServerCert);
+  sClient.setCACert(spotify_server_cert);
+  bClient.setCACert(benzServerCert);
 
-    if (!spotify.refreshAccessToken()) {
-        Serial.println("Failed to get access tokens");
-    }
+  if (!spotify.refreshAccessToken()) {
+    Serial.println("Failed to get access tokens");
+  }
 }
 
 void getColor(CurrentlyPlaying current) {
-    if (!bClient.connect("benzhou.tech", 443)) {
-        Serial.println("Connection failed");
-        return;
+  if (!bClient.connect("benzhou.tech", 443)) {
+    Serial.println("Connection failed");
+    return;
+  }
+
+  String albumImageUrl = current.albumImages[0].url;
+  int lastIndex = albumImageUrl.lastIndexOf('/');
+  String imageUrl = albumImageUrl.substring(lastIndex + 1);
+
+  String url = "/api/getColor/";
+  url += imageUrl;
+
+  bClient.print("GET " + url + " HTTP/1.1\r\n" + "Host: benzhou.tech\r\n" + "Connection: close\r\n\r\n");
+
+  unsigned long timeout = millis();
+  while (!bClient.available()) {
+    if (millis() - timeout > 5000) {
+      Serial.println("No response");
+      return;
     }
+  }
 
-    String albumImageUrl = current.albumImages[0].url;
-    int lastIndex = albumImageUrl.lastIndexOf('/');
-    String imageUrl = albumImageUrl.substring(lastIndex + 1);
+  char endOfHeaders[] = "\r\n\r\n";
+  if (!bClient.find(endOfHeaders)) {
+    Serial.println("Invalid response");
+    return;
+  }
 
-    String url = "/api/getColor/";
-    url += imageUrl;
+  String response = "";
+  while (bClient.available()) {
+    char c = bClient.read();
+    response += c;
+  }
+  Serial.println(response);
 
-    bClient.print("GET " + url + " HTTP/1.1\r\n" + "Host: benzhou.tech\r\n" +
-                  "Connection: close\r\n\r\n");
+  int bracketIndex = response.indexOf('[');
+  int firstCommaIndex = response.indexOf(',');
+  int secondCommaIndex = response.indexOf(',', firstCommaIndex + 1);
 
-    unsigned long timeout = millis();
-    while (!bClient.available()) {
-        if (millis() - timeout > 5000) {
-            Serial.println("No response");
-            return;
-        }
-    }
-
-    char endOfHeaders[] = "\r\n\r\n";
-    if (!bClient.find(endOfHeaders)) {
-        Serial.println("Invalid response");
-        return;
-    }
-
-    String response = "";
-    while (bClient.available()) {
-        char c = bClient.read();
-        response += c;
-    }
-    Serial.println(response);
+  int red = response.substring(bracketIndex + 1, firstCommaIndex).toInt();
+  int green = response.substring(firstCommaIndex + 1, secondCommaIndex).toInt();
+  int blue = response.substring(secondCommaIndex + 1, response.length() - 1).toInt();
+  for (int i = 0; i < RGB_LED_NUM; i++) LEDs[i] = CRGB(red, green, blue);
+  FastLED.show();
 }
 
 void shuffle();
@@ -158,19 +167,20 @@ void pausePlay() {}
 void skip() {}
 
 void (*funcs[7])() = {
-    shuffle, volumeDecrease, volumeIncrease, repeat, back, pausePlay, skip};
+  shuffle, volumeDecrease, volumeIncrease, repeat, back, pausePlay, skip
+};
 
 void loop() {
-    for (int i = 0; i < 7; i++) {
-        keyState[i] = digitalRead(keys[i]);
-        if (keyState[i] == LOW && keyPrevState[i] == HIGH) {
-            funcs[i]();
-        }
-        keyPrevState[i] = keyState[i];
+  for (int i = 0; i < 7; i++) {
+    keyState[i] = digitalRead(keys[i]);
+    if (keyState[i] == LOW && keyPrevState[i] == HIGH) {
+      funcs[i]();
     }
+    keyPrevState[i] = keyState[i];
+  }
 
-    if (millis() > requestDueTime) {
-        spotify.getCurrentlyPlaying(getColor, SPOTIFY_MARKET);
-        requestDueTime = millis() + delayBetweenRequests;
-    }
+  if (millis() > requestDueTime) {
+    spotify.getCurrentlyPlaying(getColor, SPOTIFY_MARKET);
+    requestDueTime = millis() + delayBetweenRequests;
+  }
 }
