@@ -217,6 +217,7 @@
                 "C:\\Users\\benzh\\AppData\\Local\\Arduino15\\packages\\esp32\\hardware\\esp32\\2.0.14\\tools\\sdk\\esp32\\qio_qspi\\include",
                 "C:\\Users\\benzh\\AppData\\Local\\Arduino15\\packages\\esp32\\hardware\\esp32\\2.0.14\\cores\\esp32",
                 "C:\\Users\\benzh\\AppData\\Local\\Arduino15\\packages\\esp32\\hardware\\esp32\\2.0.14\\variants\\esp32",
+                "C:\\Users\\benzh\\Documents\\Arduino\\libraries\\FastLED\\src",
                 "C:\\Users\\benzh\\Documents\\Arduino\\libraries\\ArduinoJson\\src",
                 "C:\\Users\\benzh\\Documents\\Arduino\\libraries\\SpotifyArduino\\src",
                 "C:\\Users\\benzh\\Documents\\Arduino\\libraries\\SpotifyCredentials",
