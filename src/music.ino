@@ -5,10 +5,10 @@
 #include <WiFi.h>
 #include <WiFiClientSecure.h>
 
-WiFiClientSecure client;
-WiFiClientSecure benzclient;
+WiFiClientSecure sClient;
+WiFiClientSecure bClient;
 
-SpotifyArduino spotify(client, spotifyId, spotifySecret, SPOTIFY_REFRESH_TOKEN);
+SpotifyArduino spotify(sClient, spotifyId, spotifySecret, SPOTIFY_REFRESH_TOKEN);
 
 unsigned long delayBetweenRequests = 60000;
 unsigned long requestDueTime;
@@ -22,8 +22,8 @@ void setup() {
         delay(500);
     }
 
-    client.setCACert(spotify_server_cert);
-    benzclient.setCACert(benzServerCert);
+    sClient.setCACert(spotify_server_cert);
+    bClient.setCACert(benzServerCert);
 
     if (!spotify.refreshAccessToken()) {
         Serial.println("Failed to get access tokens");
@@ -31,7 +31,7 @@ void setup() {
 }
 
 void getColor(CurrentlyPlaying current) {
-    if (!benzclient.connect("benzhou.tech", 443)) {
+    if (!bClient.connect("benzhou.tech", 443)) {
         Serial.println("Connection failed");
         return;
     }
@@ -43,27 +43,26 @@ void getColor(CurrentlyPlaying current) {
     String url = "/api/getColor/";
     url += imageUrl;
 
-    benzclient.print("GET " + url + " HTTP/1.1\r\n" + "Host: benzhou.tech\r\n" +
+    bClient.print("GET " + url + " HTTP/1.1\r\n" + "Host: benzhou.tech\r\n" +
                      "Connection: close\r\n\r\n");
 
     unsigned long timeout = millis();
-    while (!benzclient.available()) {
+    while (!bClient.available()) {
         if (millis() - timeout > 5000) {
             Serial.println("No response");
-            benzclient.stop();
             return;
         }
     }
 
     char endOfHeaders[] = "\r\n\r\n";
-    if (!benzclient.find(endOfHeaders)) {
+    if (!bClient.find(endOfHeaders)) {
         Serial.println("Invalid response");
         return;
     }
 
     String response = "";
-    while (benzclient.available()) {
-        char c = benzclient.read();
+    while (bClient.available()) {
+        char c = bClient.read();
         response += c;
     }
     Serial.println(response);
