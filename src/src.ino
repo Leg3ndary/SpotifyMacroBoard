@@ -44,8 +44,13 @@ WiFiClientSecure bClient;
 SpotifyArduino spotify(sClient, spotifyId, spotifySecret,
                        SPOTIFY_REFRESH_TOKEN);
 
-unsigned long delayBetweenRequests = 60000;
+unsigned long delayBetweenRequests = 10000;
 unsigned long requestDueTime;
+
+int volume = 50;
+bool shuffleState = false;
+byte repeatState = 0;
+bool playerState = false;
 
 const int keys[7] = {SHUFFLE, VOLUME_DEC, VOLUME_INC, LOOP,
                      BACK,    PAUSE_PLAY, SKIP};
@@ -59,13 +64,13 @@ CRGB LEDs[RGB_LED_NUM];
 byte a, b, c;
 
 void setup() {
-    // pinMode(SHUFFLE, INPUT_PULLUP);
-    // pinMode(VOLUME_DEC, INPUT_PULLUP);
-    // pinMode(VOLUME_INC, INPUT_PULLUP);
-    // pinMode(LOOP, INPUT_PULLUP);
-    // pinMode(BACK, INPUT_PULLUP);
-    // pinMode(PAUSE_PLAY, INPUT_PULLUP);
-    // pinMode(SKIP, INPUT_PULLUP);
+    pinMode(SHUFFLE, INPUT_PULLUP);
+    pinMode(VOLUME_DEC, INPUT_PULLUP);
+    pinMode(VOLUME_INC, INPUT_PULLUP);
+    pinMode(LOOP, INPUT_PULLUP);
+    pinMode(BACK, INPUT_PULLUP);
+    pinMode(PAUSE_PLAY, INPUT_PULLUP);
+    pinMode(SKIP, INPUT_PULLUP);
 
     for (int i = 0; i < 7; i++) {
         pinMode(keys[i], INPUT_PULLUP);
@@ -132,7 +137,8 @@ void getColor(CurrentlyPlaying current) {
         char c = bClient.read();
         response += c;
     }
-    Serial.println(response);
+    // Serial.println(response);
+    bClient.flush();
 
     int bracketIndex = response.indexOf('[');
     int firstCommaIndex = response.indexOf(',');
@@ -155,19 +161,52 @@ void back();
 void pausePlay();
 void skip();
 
-void shuffle() {}
+void shuffle() {
+    shuffleState = !shuffleState;
+    spotify.toggleShuffle(shuffleState);
+}
 
-void volumeDecrease() {}
+void volumeDecrease() {
+    volume = max(volume - 5, 0);
+    spotify.setVolume(volume);
+}
 
-void volumeIncrease() {}
+void volumeIncrease() {
+    volume = min(volume + 5, 100);
+    spotify.setVolume(volume);
+}
 
-void repeat() {}
+void repeat() {
+    repeatState = (repeatState + 1) % 3;
+    if (repeatState == 0) {
+        spotify.setRepeatMode(repeat_off);
+    } else if (repeatState == 1) {
+        spotify.setRepeatMode(repeat_track);
+    } else {
+        spotify.setRepeatMode(repeat_context);
+    }
+}
 
-void back() {}
+void back() {
+    spotify.previousTrack();
+    spotify.getCurrentlyPlaying(getColor, SPOTIFY_MARKET);
+    requestDueTime = millis() + delayBetweenRequests;
+}
 
-void pausePlay() {}
+void pausePlay() {
+    playerState = !playerState;
+    if (playerState) {
+        spotify.play();
+    } else {
+        spotify.pause();
+    }
+}
 
-void skip() {}
+void skip() {
+    spotify.nextTrack();
+    spotify.getCurrentlyPlaying(getColor, SPOTIFY_MARKET);
+    requestDueTime = millis() + delayBetweenRequests;
+}
 
 void (*funcs[7])() = {
     shuffle, volumeDecrease, volumeIncrease, repeat, back, pausePlay, skip};
