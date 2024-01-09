@@ -1,7 +1,7 @@
 
 #include <FastLED.h>
 
-#define RGB_PIN A0        // LED DATA PIN
+#define LED 18        // LED DATA PIN
 #define RGB_LED_NUM 300   // 10 LEDs [0...9]
 #define BRIGHTNESS 200    // brightness range [0..255]
 #define CHIP_SET WS2812B  // types of RGB LEDs
@@ -21,8 +21,7 @@ void setup() {
     Serial.println("WS2812B LEDs strip Initialize");
     Serial.println(
         "Please enter the 1 to 6 value.....Otherwise no any effect show");
-    FastLED.addLeds<CHIP_SET, RGB_PIN, COLOR_CODE>(LEDs, RGB_LED_NUM);
-    randomSeed(analogRead(0));
+    FastLED.addLeds<CHIP_SET, LED, COLOR_CODE>(LEDs, RGB_LED_NUM);
     FastLED.setBrightness(BRIGHTNESS);
     FastLED.setMaxPowerInVoltsAndMilliamps(5, 500);
     FastLED.clear();
