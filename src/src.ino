@@ -21,7 +21,7 @@ On each cycle do three things
 #include <WiFiClientSecure.h>
 
 #define RGB_PIN 18
-#define RGB_LED_NUM 100  // 300 total
+#define RGB_LED_NUM 20
 #define BRIGHTNESS 230   // brightness range [0..255]
 #define CHIP_SET WS2812B
 #define COLOR_CODE GRB  // Enum
