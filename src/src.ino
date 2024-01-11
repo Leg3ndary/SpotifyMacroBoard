@@ -100,8 +100,6 @@ void setup() {
             ;  // Don't proceed, loop forever
     }
 
-    display.display();
-    delay(2000);
     display.clearDisplay();
 
     WiFi.mode(WIFI_STA);
@@ -163,11 +161,10 @@ void getColor(CurrentlyPlaying current) {
     // Serial.println(response);
     bClient.flush();
 
-    display.setTextSize(2);  // Draw 2X-scale text
-    display.setCursor(0, 20);
+    display.setTextSize(1);  // Draw 2X-scale text
+    display.setCursor(0, 0);
     display.setTextColor(WHITE);
     display.print(current.trackName);
-    display.print("       ");
     display.display();
     display.startscrollright(0x0F, 0x00);
     
