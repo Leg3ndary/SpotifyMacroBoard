@@ -12,17 +12,21 @@ On each cycle do three things
 3. Update Led's
 */
 
+#include <Adafruit_GFX.h>
+#include <Adafruit_SSD1306.h>
 #include <ArduinoJson.h>
 #include <FastLED.h>
+#include <SPI.h>
 #include <SpotifyArduino.h>
 #include <SpotifyArduinoCert.h>
 #include <SpotifyCredentials.h>
 #include <WiFi.h>
 #include <WiFiClientSecure.h>
+#include <Wire.h>
 
 #define RGB_PIN 18
 #define RGB_LED_NUM 20
-#define BRIGHTNESS 230   // brightness range [0..255]
+#define BRIGHTNESS 230  // brightness range [0..255]
 #define CHIP_SET WS2812B
 #define COLOR_CODE GRB  // Enum
 #define UPDATES_PER_SECOND 100
@@ -38,8 +42,15 @@ On each cycle do three things
 #define SCL 19
 #define SDA 21
 
+#define SCREEN_WIDTH 128
+#define SCREEN_HEIGHT 64
+#define OLED_RESET -1
+
 WiFiClientSecure sClient;
 WiFiClientSecure bClient;
+TwoWire I2CBME = TwoWire(0);
+
+Adafruit_SSD1306 display(SCREEN_WIDTH, SCREEN_HEIGHT, &I2CBME, OLED_RESET);
 
 SpotifyArduino spotify(sClient, spotifyId, spotifySecret,
                        SPOTIFY_REFRESH_TOKEN);
@@ -81,6 +92,18 @@ void setup() {
     pinMode(SDA, INPUT_PULLUP);
 
     Serial.begin(115200);
+    I2CBME.begin(SDA, SCL, 400000);
+
+    if (!display.begin(SSD1306_SWITCHCAPVCC, 0x3C)) {
+        Serial.println(F("SSD1306 allocation failed"));
+        for (;;)
+            ;  // Don't proceed, loop forever
+    }
+
+    display.display();
+    delay(2000);
+    display.clearDisplay();
+
     WiFi.mode(WIFI_STA);
     WiFi.begin(SSID, SSID_PASS);
 
@@ -140,6 +163,14 @@ void getColor(CurrentlyPlaying current) {
     // Serial.println(response);
     bClient.flush();
 
+    display.setTextSize(2);  // Draw 2X-scale text
+    display.setCursor(0, 20);
+    display.setTextColor(WHITE);
+    display.print(current.trackName);
+    display.print("       ");
+    display.display();
+    display.startscrollright(0x0F, 0x00);
+    
     int bracketIndex = response.indexOf('[');
     int firstCommaIndex = response.indexOf(',');
     int secondCommaIndex = response.indexOf(',', firstCommaIndex + 1);

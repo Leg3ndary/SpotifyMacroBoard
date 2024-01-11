@@ -22,8 +22,6 @@ and the splash screen below must be included in any redistribution.
 
 TwoWire I2CBME = TwoWire(0);
 
-
-
 #define SCREEN_WIDTH 128
 #define SCREEN_HEIGHT 64
 #define OLED_RESET -1
