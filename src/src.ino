@@ -46,6 +46,23 @@ On each cycle do three things
 #define SCREEN_HEIGHT 64
 #define OLED_RESET -1
 
+// 'wifi-logo', 16x16px
+const unsigned char wifi_logo[] PROGMEM = {
+    0xff, 0xff, 0xff, 0xff, 0xf0, 0x0f, 0xc1, 0x83, 0x9f, 0xf1, 0x38,
+    0x1c, 0xe1, 0x87, 0xcf, 0xf3, 0xd8, 0x1b, 0xf1, 0x8f, 0xf3, 0xcf,
+    0xfe, 0x7f, 0xfc, 0x3f, 0xfe, 0x7f, 0xff, 0xff, 0xff, 0xff};
+
+// 'wifi-logo2', 16x16px
+const unsigned char wifi_logo2[] PROGMEM = {
+    0xff, 0xff, 0xff, 0xff, 0xff, 0xff, 0xff, 0xff, 0xff, 0xff, 0xf8,
+    0x1f, 0xe1, 0x87, 0xcf, 0xf3, 0xd8, 0x1b, 0xf1, 0x8f, 0xf3, 0xcf,
+    0xfe, 0x7f, 0xfc, 0x3f, 0xfe, 0x7f, 0xff, 0xff, 0xff, 0xff};
+
+const unsigned char wifi_logo3 [] PROGMEM = {
+	0xff, 0xff, 0xff, 0xff, 0xff, 0xff, 0xff, 0xff, 0xff, 0xff, 0xff, 0xff, 0xff, 0xff, 0xff, 0xff, 
+	0xf8, 0x1f, 0xf1, 0x8f, 0xf3, 0xcf, 0xfe, 0x7f, 0xfc, 0x3f, 0xfe, 0x7f, 0xff, 0xff, 0xff, 0xff
+};
+
 WiFiClientSecure sClient;
 WiFiClientSecure bClient;
 TwoWire I2CBME = TwoWire(0);
@@ -62,6 +79,7 @@ int volume = 50;
 bool shuffleState = false;
 byte repeatState = 0;
 bool playerState = false;
+int rssi = 0;
 
 const int keys[7] = {SHUFFLE, VOLUME_DEC, VOLUME_INC, LOOP,
                      BACK,    PAUSE_PLAY, SKIP};
@@ -74,15 +92,11 @@ CRGB LEDs[RGB_LED_NUM];
 // define 3 byte for the random color
 byte a, b, c;
 
-void setup() {
-    pinMode(SHUFFLE, INPUT_PULLUP);
-    pinMode(VOLUME_DEC, INPUT_PULLUP);
-    pinMode(VOLUME_INC, INPUT_PULLUP);
-    pinMode(LOOP, INPUT_PULLUP);
-    pinMode(BACK, INPUT_PULLUP);
-    pinMode(PAUSE_PLAY, INPUT_PULLUP);
-    pinMode(SKIP, INPUT_PULLUP);
+// WIFI STUFF
+unsigned long nextRSSICheck = 0;
+unsigned long RSSIDelay = 10000;
 
+void setup() {
     for (int i = 0; i < 7; i++) {
         pinMode(keys[i], INPUT_PULLUP);
     }
@@ -92,6 +106,7 @@ void setup() {
     pinMode(SDA, INPUT_PULLUP);
 
     Serial.begin(115200);
+    delay(1500);
     I2CBME.begin(SDA, SCL, 400000);
 
     if (!display.begin(SSD1306_SWITCHCAPVCC, 0x3C)) {
@@ -115,12 +130,49 @@ void setup() {
         delay(500);
     }
 
+    display.println("Connected to WiFi");
+    display.display();
+
     sClient.setCACert(spotify_server_cert);
     bClient.setCACert(benzServerCert);
 
     if (!spotify.refreshAccessToken()) {
         Serial.println("Failed to get access tokens");
     }
+}
+
+void drawScreenOutline() {
+    display.setCursor(0, 0);
+    display.setTextColor(WHITE);
+    display.setTextWrap(false);
+
+    display.setTextSize(2);
+
+    for (int i = 0; i < 2; i++) {
+        for (int j = 0; j < 16; j++) {
+            display.drawPixel(i, j, WHITE);
+        }
+    }
+    // for (int i = 2; i < 18; i++) {
+    //     for (int j = 0; j < 16; j++) {
+    //         display.drawPixel(i, j, BLACK);
+    //     }
+    // }
+    for (int i = 18; i < 128; i++) {
+        for (int j = 0; j < 16; j++) {
+            display.drawPixel(i, j, WHITE);
+        }
+    }
+
+    if (rssi == 0) {
+        display.drawBitmap(2, 0, wifi_logo3, 16, 16, WHITE);
+    } else if (rssi < -70) {
+        display.drawBitmap(2, 0, wifi_logo2, 16, 16, WHITE);
+    } else {
+        display.drawBitmap(2, 0, wifi_logo, 16, 16, WHITE);
+    }
+
+    display.display();
 }
 
 void getColor(CurrentlyPlaying current) {
@@ -161,13 +213,16 @@ void getColor(CurrentlyPlaying current) {
     // Serial.println(response);
     bClient.flush();
 
-    display.setTextSize(1);  // Draw 2X-scale text
-    display.setCursor(0, 0);
-    display.setTextColor(WHITE);
-    display.print(current.trackName);
+    display.clearDisplay();
+    drawScreenOutline();
+    display.setCursor(0, 16);
+    display.setTextSize(2);
+    display.println(current.trackName);
+    display.setTextSize(1);
+    display.println(current.artists[0].artistName);
     display.display();
-    display.startscrollright(0x0F, 0x00);
-    
+    display.startscrollright(2, 5);
+
     int bracketIndex = response.indexOf('[');
     int firstCommaIndex = response.indexOf(',');
     int secondCommaIndex = response.indexOf(',', firstCommaIndex + 1);
@@ -180,14 +235,6 @@ void getColor(CurrentlyPlaying current) {
     for (int i = 0; i < RGB_LED_NUM; i++) LEDs[i] = CRGB(red, green, blue);
     FastLED.show();
 }
-
-void shuffle();
-void volumeDecrease();
-void volumeIncrease();
-void repeat();
-void back();
-void pausePlay();
-void skip();
 
 void shuffle() {
     shuffleState = !shuffleState;
@@ -218,7 +265,6 @@ void repeat() {
 void back() {
     spotify.previousTrack();
     spotify.getCurrentlyPlaying(getColor, SPOTIFY_MARKET);
-    requestDueTime = millis() + delayBetweenRequests;
 }
 
 void pausePlay() {
@@ -233,7 +279,6 @@ void pausePlay() {
 void skip() {
     spotify.nextTrack();
     spotify.getCurrentlyPlaying(getColor, SPOTIFY_MARKET);
-    requestDueTime = millis() + delayBetweenRequests;
 }
 
 void (*funcs[7])() = {
@@ -248,8 +293,9 @@ void loop() {
         keyPrevState[i] = keyState[i];
     }
 
-    if (millis() > requestDueTime) {
-        spotify.getCurrentlyPlaying(getColor, SPOTIFY_MARKET);
-        requestDueTime = millis() + delayBetweenRequests;
+    if (millis() > nextRSSICheck) {
+        nextRSSICheck = millis() + RSSIDelay;
+        rssi = WiFi.RSSI();
+        drawScreenOutline();
     }
 }
