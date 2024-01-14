@@ -192,12 +192,12 @@ void updateState(char action, int subAction = 0) {
     } else if (action == 's') {
         actionString = "skip";
     } else if (action == 'r') {
-        actionString = "repeat";
+        actionString = "loop";
     } else if (action == 'v') {
         if (subAction == 0) {
             actionString = "vinc";
         } else {
-            actionString = "vinc";
+            actionString = "vdec";
         }
     } else if (action == 'l') {
         actionString = "loop";
