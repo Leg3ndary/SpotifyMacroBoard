@@ -49,7 +49,6 @@ TwoWire I2CBME = TwoWire(0);
 
 Adafruit_SSD1306 display(SCREEN_WIDTH, SCREEN_HEIGHT, &I2CBME, OLED_RESET);
 
-int volume = 50;
 bool shuffleState = false;
 byte repeatState = 0;
 int rssi = 0;
@@ -69,6 +68,10 @@ byte a, b, c;
 unsigned long nextRSSICheck = 0;
 unsigned long RSSIDelay = 10000;
 int lastRSSI = 0;
+
+// Curret check
+unsigned long nextCurrentCheck = 0;
+unsigned long currentDelay = 5000;
 
 void setup() {
     for (int i = 0; i < 7; i++) {
@@ -118,7 +121,6 @@ void setup() {
     display.println("  Starting  ");
     display.display();
     updateCurrent();
-    Serial.println("everything should be working");
 }
 
 void drawScreenOutline() {
@@ -204,8 +206,7 @@ void updateState(char action, int subAction = 0) {
     } else if (action == 'f') {
         actionString = "shuffle";
     }
-    unsigned long timeout = millis();
-    if (!bClient.connected() || !bClient.available()) {
+    if (!bClient.connected()) {
         if (!bClient.connect("benzhou.tech", 443)) {
             Serial.println("Connection failed");
             return;
@@ -214,17 +215,12 @@ void updateState(char action, int subAction = 0) {
     }
     bClient.print("GET /api/manageState/" + PASSWORD + "/" + actionString +
                   " HTTP/1.1\r\n" + "Host: benzhou.tech\r\n" +
-                  "Connection: keep-alive\r\n" +
-                  "Keep-Alive: timeout=300, max=100\r\n\r\n");
-
-    Serial.print("called with ");
-    Serial.println(actionString);
+                  "Connection: Keep-Alive\r\n\r\n");
     bClient.flush();
-    // bClient.stop();
 }
 
 void updateCurrent() {
-    if (!bClient.connected() || !bClient.available()) {
+    if (!bClient.connected()) {
         if (!bClient.connect("benzhou.tech", 443)) {
             Serial.println("Connection failed");
             return;
@@ -233,8 +229,7 @@ void updateCurrent() {
     }
 
     bClient.print("GET /api/getCurrent/" + PASSWORD + " HTTP/1.1\r\n" +
-                  "Host: benzhou.tech\r\n" + "Connection: keep-alive\r\n" +
-                  "Keep-Alive: timeout=300, max=100\r\n\r\n");
+                  "Host: benzhou.tech\r\n" + "Connection: Keep-Alive\r\n\r\n");
 
     unsigned long timeout = millis();
     while (!bClient.available()) {
@@ -244,18 +239,19 @@ void updateCurrent() {
         }
     }
     yield();
+
     char endOfHeaders[] = "\r\n\r\n";
     if (!bClient.find(endOfHeaders)) {
         Serial.println("Invalid response");
         return;
     }
+    bClient.find("{\"title");
 
-    String response = "";
+    String response = "{\"title";
     while (bClient.available()) {
         char c = bClient.read();
         response += c;
     }
-    Serial.println(response);
     bClient.flush();
 
     String title, artist, album, color, duration, progress, pausedRaw,
@@ -277,8 +273,6 @@ void updateCurrent() {
 
     color =
         response.substring(response.indexOf("[") + 1, response.indexOf("]"));
-
-    Serial.println(color);
 
     int commaIndex1 = color.indexOf(",");
     int commaIndex2 = color.indexOf(",", commaIndex1 + 1);
@@ -314,16 +308,17 @@ void repeat() { updateState('r'); }
 
 void back() {
     updateState('b');
-    updateCurrent();
+    nextCurrentCheck = millis() + 100;
 }
 
 void pausePlay() {
     updateState('p');
-    updateCurrent();
+    nextCurrentCheck = millis() + 100;
 }
 
 void skip() {
     updateState('s');
+    nextCurrentCheck = millis() + 100;
     updateCurrent();
 }
 
@@ -343,5 +338,10 @@ void loop() {
         nextRSSICheck = millis() + RSSIDelay;
         rssi = WiFi.RSSI();
         drawScreenOutline();
+    }
+
+    if (millis() > nextCurrentCheck) {
+        nextCurrentCheck = millis() + currentDelay;
+        updateCurrent();
     }
 }
