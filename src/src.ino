@@ -195,9 +195,9 @@ void updateState(char action, int subAction = 0) {
         actionString = "loop";
     } else if (action == 'v') {
         if (subAction == 0) {
-            actionString = "vinc";
-        } else {
             actionString = "vdec";
+        } else {
+            actionString = "vinc";
         }
     } else if (action == 'l') {
         actionString = "loop";
@@ -205,27 +205,36 @@ void updateState(char action, int subAction = 0) {
         actionString = "shuffle";
     }
     unsigned long timeout = millis();
-    if (!bClient.connect("benzhou.tech", 443)) {
-        Serial.println("Connection failed");
-        return;
+    if (!bClient.connected() || !bClient.available()) {
+        if (!bClient.connect("benzhou.tech", 443)) {
+            Serial.println("Connection failed");
+            return;
+        }
+        yield();
     }
     bClient.print("GET /api/manageState/" + PASSWORD + "/" + actionString +
                   " HTTP/1.1\r\n" + "Host: benzhou.tech\r\n" +
-                  "Connection: close\r\n\r\n");
-    Serial.println("called with ");
+                  "Connection: keep-alive\r\n" +
+                  "Keep-Alive: timeout=300, max=100\r\n\r\n");
+
+    Serial.print("called with ");
     Serial.println(actionString);
     bClient.flush();
-    bClient.stop();
+    // bClient.stop();
 }
 
 void updateCurrent() {
-    if (!bClient.connect("benzhou.tech", 443)) {
-        Serial.println("Connection failed");
-        return;
+    if (!bClient.connected() || !bClient.available()) {
+        if (!bClient.connect("benzhou.tech", 443)) {
+            Serial.println("Connection failed");
+            return;
+        }
+        yield();
     }
 
     bClient.print("GET /api/getCurrent/" + PASSWORD + " HTTP/1.1\r\n" +
-                  "Host: benzhou.tech\r\n" + "Connection: close\r\n\r\n");
+                  "Host: benzhou.tech\r\n" + "Connection: keep-alive\r\n" +
+                  "Keep-Alive: timeout=300, max=100\r\n\r\n");
 
     unsigned long timeout = millis();
     while (!bClient.available()) {
@@ -234,7 +243,7 @@ void updateCurrent() {
             return;
         }
     }
-
+    yield();
     char endOfHeaders[] = "\r\n\r\n";
     if (!bClient.find(endOfHeaders)) {
         Serial.println("Invalid response");
@@ -292,7 +301,7 @@ void updateCurrent() {
     delay(500);
     display.display();
     display.startscrollright(2, 5);
-    bClient.stop();
+    // bClient.stop();
 }
 
 void shuffle() { updateState('f'); }
@@ -301,9 +310,7 @@ void volumeDecrease() { updateState('v', 0); }
 
 void volumeIncrease() { updateState('v', 1); }
 
-void repeat() {
-    updateState('r');
-}
+void repeat() { updateState('r'); }
 
 void back() {
     updateState('b');
