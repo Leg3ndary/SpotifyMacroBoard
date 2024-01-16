@@ -45,9 +45,9 @@ const unsigned char wifi_logo3[] PROGMEM = {
     0xfe, 0x7f, 0xfc, 0x3f, 0xfe, 0x7f, 0xff, 0xff, 0xff, 0xff};
 
 WiFiClientSecure bClient;
-TwoWire I2CBME = TwoWire(0);
+TwoWire I2C = TwoWire(0);
 
-Adafruit_SSD1306 display(SCREEN_WIDTH, SCREEN_HEIGHT, &I2CBME, OLED_RESET);
+Adafruit_SSD1306 display(SCREEN_WIDTH, SCREEN_HEIGHT, &I2C, OLED_RESET);
 
 bool shuffleState = false;
 byte repeatState = 0;
@@ -82,44 +82,53 @@ void setup() {
     pinMode(SCL, INPUT_PULLUP);
     pinMode(SDA, INPUT_PULLUP);
 
-    Serial.begin(115200);
-    delay(2000);
-    I2CBME.begin(SDA, SCL, 400000);
-    if (!display.begin(SSD1306_SWITCHCAPVCC, 0x3C)) {
-        Serial.println(F("SSD1306 allocation failed"));
-        for (;;)
-            ;  // Don't proceed, loop forever
-    }
     delay(2000);
 
+    FastLED.addLeds<CHIP_SET, LED, COLOR_CODE>(LEDs, RGB_LED_NUM);
+    FastLED.setBrightness(BRIGHTNESS);
+    FastLED.setMaxPowerInVoltsAndMilliamps(5, 500);
+
+    for (int i = 0; i < RGB_LED_NUM; i++) LEDs[i] = CRGB::White;
+    FastLED.show();
+
+    I2C.begin(SDA, SCL, 400000);
+    if (!display.begin(SSD1306_SWITCHCAPVCC, 0x3C)) {
+        for (int i = 0; i < RGB_LED_NUM; i++) {
+            LEDs[i] = CRGB::OrangeRed;
+        }
+        FastLED.show();
+        for (;;) {
+            ;
+        }
+    }
+    delay(2000);
     display.clearDisplay();
 
     WiFi.mode(WIFI_STA);
     WiFi.begin(SSID, SSID_PASS);
 
-    FastLED.addLeds<CHIP_SET, LED, COLOR_CODE>(LEDs, RGB_LED_NUM);
-    FastLED.setBrightness(BRIGHTNESS);
-    FastLED.setMaxPowerInVoltsAndMilliamps(5, 500);
-    FastLED.clear();
-    FastLED.show();
-
-    while (WiFi.status() != WL_CONNECTED) {
-        delay(500);
-    }
-
-    display.println("Connected to WiFi");
+    display.println("Connecting to WiFi");
     display.display();
+
+    int ping = 0;
+    while (WiFi.status() != WL_CONNECTED) {
+        for (int times = 0; times < 10; times++) {
+            ping++;
+            for (int i = 0; i < RGB_LED_NUM; i++) {
+                if (i != ping) {
+                    LEDs[i] = CRGB::White;
+                } else {
+                    LEDs[i] = CRGB::Green;
+                }
+            }
+            if (ping >= RGB_LED_NUM) ping = 0;
+            delay(50);
+            FastLED.show();
+        }
+    }
+    for (int i = 0; i < RGB_LED_NUM; i++) LEDs[i] = CRGB::Green;
 
     bClient.setCACert(benzServerCert);
-
-    // Finished All of the setup, now acc say starting
-    delay(2000);
-    display.clearDisplay();
-    drawScreenOutline();
-    display.setCursor(0, 16);
-    display.setTextSize(2);
-    display.println("  Starting  ");
-    display.display();
     updateCurrent();
 }
 
@@ -171,7 +180,6 @@ void extractValue(const String& key, const String& json, String& result) {
         result.remove(0, 1);
         result.remove(result.length() - 1);
     }
-    yield();
 }
 
 /* Actions are as follows
@@ -208,7 +216,8 @@ void updateState(char action, int subAction = 0) {
     }
     if (!bClient.connected()) {
         if (!bClient.connect("benzhou.tech", 443)) {
-            Serial.println("Connection failed");
+            for (int i = 0; i < RGB_LED_NUM; i++) LEDs[i] = CRGB::Red;
+            FastLED.show();
             return;
         }
         yield();
@@ -219,10 +228,14 @@ void updateState(char action, int subAction = 0) {
     bClient.flush();
 }
 
+String title, artist, album, color, duration, progress, pausedRaw, volumeRaw,
+    repeatRaw, shuffleRaw, lastTitle;
+
 void updateCurrent() {
     if (!bClient.connected()) {
         if (!bClient.connect("benzhou.tech", 443)) {
-            Serial.println("Connection failed");
+            for (int i = 0; i < RGB_LED_NUM; i++) LEDs[i] = CRGB::Red;
+            FastLED.show();
             return;
         }
         yield();
@@ -234,7 +247,8 @@ void updateCurrent() {
     unsigned long timeout = millis();
     while (!bClient.available()) {
         if (millis() - timeout > 5000) {
-            Serial.println("No response");
+            for (int i = 0; i < RGB_LED_NUM; i++) LEDs[i] = CRGB::Yellow;
+            FastLED.show();
             return;
         }
     }
@@ -242,8 +256,9 @@ void updateCurrent() {
 
     char endOfHeaders[] = "\r\n\r\n";
     if (!bClient.find(endOfHeaders)) {
-        Serial.println("Invalid response");
-        return;
+        for (int i = 0; i < RGB_LED_NUM; i++) LEDs[i] = CRGB::Orange;
+            FastLED.show();
+            return;
     }
     bClient.find("{\"title");
 
@@ -254,9 +269,7 @@ void updateCurrent() {
     }
     bClient.flush();
 
-    String title, artist, album, color, duration, progress, pausedRaw,
-        volumeRaw, repeatRaw, shuffleRaw;
-
+    lastTitle = title;
     extractValue("title", response, title);
     extractValue("artist", response, artist);
     extractValue("album", response, album);
@@ -271,31 +284,69 @@ void updateCurrent() {
     int volume = volumeRaw.toInt();
     bool shuffle = shuffleRaw == "true";
 
-    color =
-        response.substring(response.indexOf("[") + 1, response.indexOf("]"));
+    if (title != lastTitle) {
+        color = response.substring(response.indexOf("[") + 1,
+                                   response.indexOf("]"));
 
-    int commaIndex1 = color.indexOf(",");
-    int commaIndex2 = color.indexOf(",", commaIndex1 + 1);
+        int commaIndex1 = color.indexOf(",");
+        int commaIndex2 = color.indexOf(",", commaIndex1 + 1);
 
-    int red = color.substring(0, commaIndex1 + 1).toInt();
-    int green = color.substring(commaIndex1 + 1, commaIndex2 + 1).toInt();
-    int blue = color.substring(commaIndex2 + 1, color.length()).toInt();
+        int red = color.substring(0, commaIndex1 + 1).toInt();
+        int green = color.substring(commaIndex1 + 1, commaIndex2 + 1).toInt();
+        int blue = color.substring(commaIndex2 + 1, color.length()).toInt();
 
-    for (int i = 0; i < RGB_LED_NUM; i++) LEDs[i] = CRGB(red, green, blue);
-    FastLED.show();
+        for (int i = 0; i < RGB_LED_NUM; i++) LEDs[i] = CRGB(red, green, blue);
+        FastLED.show();
+    }
 
-    display.clearDisplay();
-    drawScreenOutline();
     display.setTextColor(WHITE);
-    display.setCursor(0, 16);
-    display.setTextSize(2);
-    display.println(title);
+    display.setTextWrap(false);
+    if (lastTitle != title) {
+        display.clearDisplay();
+        drawScreenOutline();
+        display.setCursor(0, 16);
+        display.setTextSize(2);
+        display.println(title);
+        display.setTextSize(1);
+        display.println(artist);
+    }
+
+    // Clearing bottom half of display
+    display.fillRect(0, 48, 128, 16, BLACK);
+
+    int barWidth = 100;
+    int barHeight = 6;
+    int barX = 14;
+    int barY = 56;
+
+    display.drawRect(barX, barY, barWidth, barHeight, WHITE);
+
+    int total = duration.toInt();
+    int current = progress.toInt();
+    int percent = (total > 0) ? (100 * current) / total : 0;
+
+    int progressWidth = (barWidth * percent) / 100;
+    display.fillRect(barX, barY, progressWidth, barHeight, WHITE);
+
+    int currentMinutes = current / 60;
+    int currentSeconds = current % 60;
+    int totalMinutes = total / 60;
+    int totalSeconds = total % 60;
+
     display.setTextSize(1);
-    display.println(artist);
-    delay(500);
+    display.setCursor(32, 48);
+    display.print(currentMinutes);
+    display.print(":");
+    if (currentSeconds < 10) display.print("0");
+    display.print(currentSeconds);
+    display.print("/");
+    display.print(totalMinutes);
+    display.print(":");
+    if (totalSeconds < 10) display.print("0");
+    display.println(totalSeconds);
+
+    delay(100);
     display.display();
-    display.startscrollright(2, 5);
-    // bClient.stop();
 }
 
 void shuffle() { updateState('f'); }
