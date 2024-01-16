@@ -44,6 +44,29 @@ const unsigned char wifi_logo3[] PROGMEM = {
     0xff, 0xff, 0xff, 0xff, 0xff, 0xf8, 0x1f, 0xf1, 0x8f, 0xf3, 0xcf,
     0xfe, 0x7f, 0xfc, 0x3f, 0xfe, 0x7f, 0xff, 0xff, 0xff, 0xff};
 
+// 'volume-up', 16x18px
+const unsigned char volume_3[] PROGMEM = {
+    0xff, 0xff, 0xff, 0xf7, 0xff, 0xf3, 0xf9, 0xf9, 0xf1, 0xcd, 0x01, 0xe4,
+    0x01, 0xb4, 0x01, 0x96, 0x01, 0x96, 0x01, 0xb4, 0x01, 0xe4, 0xf1, 0xcd,
+    0xf9, 0xd9, 0xff, 0xf3, 0xff, 0xf7, 0xff, 0xff, 0xff, 0xff, 0xff, 0xff};
+// 'volume-2', 16x16px
+const unsigned char volume_2[] PROGMEM = {
+    0xff, 0xff, 0xff, 0xff, 0xff, 0xff, 0xf9, 0xff, 0xf1, 0xcf, 0x01,
+    0xe7, 0x01, 0xb7, 0x01, 0x97, 0x01, 0x97, 0x01, 0xb7, 0x01, 0xe7,
+    0xf1, 0xcf, 0xf9, 0xdf, 0xff, 0xff, 0xff, 0xff, 0xff, 0xff};
+
+// 'volume-1', 16x16px
+const unsigned char volume_1[] PROGMEM = {
+    0xff, 0xff, 0xff, 0xff, 0xff, 0xff, 0xf9, 0xff, 0xf1, 0xff, 0x01,
+    0xff, 0x01, 0xbf, 0x01, 0x9f, 0x01, 0x9f, 0x01, 0xbf, 0x01, 0xff,
+    0xf1, 0xff, 0xf9, 0xff, 0xff, 0xff, 0xff, 0xff, 0xff, 0xff};
+
+// 'volume-0', 16x16px
+const unsigned char volume_0[] PROGMEM = {
+    0xff, 0xff, 0xff, 0xff, 0xff, 0xff, 0xf9, 0xff, 0xf1, 0xff, 0x01,
+    0xff, 0x01, 0xff, 0x01, 0xff, 0x01, 0xff, 0x01, 0xff, 0x01, 0xff,
+    0xf1, 0xff, 0xf9, 0xff, 0xff, 0xff, 0xff, 0xff, 0xff, 0xff};
+
 WiFiClientSecure bClient;
 TwoWire I2C = TwoWire(0);
 
@@ -72,6 +95,17 @@ int lastRSSI = 0;
 // Curret check
 unsigned long nextCurrentCheck = 0;
 unsigned long currentDelay = 5000;
+
+// Time check
+unsigned long nextTimeCheck = 0;
+unsigned long timeDelay = 1000;
+
+String title, artist, album, color, durationRaw, progressRaw, pausedRaw,
+    volumeRaw, repeatRaw, shuffleRaw, lastTitle;
+
+int progress, duration, volume;
+int lastVolume;
+bool paused;
 
 void setup() {
     for (int i = 0; i < 7; i++) {
@@ -133,7 +167,6 @@ void setup() {
 }
 
 void drawScreenOutline() {
-    if (lastRSSI == rssi) return;
     display.setCursor(0, 0);
     display.setTextColor(WHITE);
     display.setTextWrap(false);
@@ -150,7 +183,7 @@ void drawScreenOutline() {
             display.drawPixel(i, j, BLACK);
         }
     }
-    for (int i = 18; i < 128; i++) {
+    for (int i = 18; i < 64; i++) {
         for (int j = 0; j < 16; j++) {
             display.drawPixel(i, j, WHITE);
         }
@@ -162,6 +195,34 @@ void drawScreenOutline() {
         display.drawBitmap(2, 0, wifi_logo2, 16, 16, WHITE);
     } else {
         display.drawBitmap(2, 0, wifi_logo, 16, 16, WHITE);
+    }
+
+    for (int i = 64; i < 108; i++) {
+        for (int j = 0; j < 16; j++) {
+            display.drawPixel(i, j, WHITE);
+        }
+    }
+    for (int i = 108; i < 124; i++) {
+        for (int j = 0; j < 16; j++) {
+            display.drawPixel(i, j, BLACK);
+        }
+    }
+    int start = 124;
+
+    if (volume == 0) {
+        display.drawBitmap(108, 0, volume_0, 16, 18, WHITE);
+        start = 122;
+    } else if (volume < 33) {
+        display.drawBitmap(108, 0, volume_1, 16, 16, WHITE);
+    } else if (volume < 66) {
+        display.drawBitmap(108, 0, volume_2, 16, 16, WHITE);
+    } else {
+        display.drawBitmap(108, 0, volume_3, 16, 16, WHITE);
+    }
+    for (int i = start; i < 128; i++) {
+        for (int j = 0; j < 16; j++) {
+            display.drawPixel(i, j, WHITE);
+        }
     }
 
     display.display();
@@ -228,9 +289,6 @@ void updateState(char action, int subAction = 0) {
     bClient.flush();
 }
 
-String title, artist, album, color, duration, progress, pausedRaw, volumeRaw,
-    repeatRaw, shuffleRaw, lastTitle;
-
 void updateCurrent() {
     if (!bClient.connected()) {
         if (!bClient.connect("benzhou.tech", 443)) {
@@ -257,12 +315,12 @@ void updateCurrent() {
     char endOfHeaders[] = "\r\n\r\n";
     if (!bClient.find(endOfHeaders)) {
         for (int i = 0; i < RGB_LED_NUM; i++) LEDs[i] = CRGB::Orange;
-            FastLED.show();
-            return;
+        FastLED.show();
+        return;
     }
-    bClient.find("{\"title");
+    bClient.find("{\"ti");
 
-    String response = "{\"title";
+    String response = "{\"ti";
     while (bClient.available()) {
         char c = bClient.read();
         response += c;
@@ -273,16 +331,19 @@ void updateCurrent() {
     extractValue("title", response, title);
     extractValue("artist", response, artist);
     extractValue("album", response, album);
-    extractValue("duration", response, duration);
-    extractValue("progress", response, progress);
+    extractValue("duration", response, durationRaw);
+    extractValue("progress", response, progressRaw);
     extractValue("paused", response, pausedRaw);
     extractValue("volume", response, volumeRaw);
     extractValue("loop", response, repeatRaw);
     extractValue("shuffle", response, shuffleRaw);
 
-    bool paused = pausedRaw == "true";
-    int volume = volumeRaw.toInt();
+    paused = pausedRaw == "true";
+    lastVolume = volume;
+    volume = volumeRaw.toInt();
     bool shuffle = shuffleRaw == "true";
+    duration = durationRaw.toInt();
+    progress = progressRaw.toInt();
 
     if (title != lastTitle) {
         color = response.substring(response.indexOf("[") + 1,
@@ -311,8 +372,16 @@ void updateCurrent() {
         display.println(artist);
     }
 
+    display.display();
+}
+
+void updateTime(int total, int current) {
     // Clearing bottom half of display
     display.fillRect(0, 48, 128, 16, BLACK);
+
+    if (current > total) {
+        current = total;
+    }
 
     int barWidth = 100;
     int barHeight = 6;
@@ -321,9 +390,7 @@ void updateCurrent() {
 
     display.drawRect(barX, barY, barWidth, barHeight, WHITE);
 
-    int total = duration.toInt();
-    int current = progress.toInt();
-    int percent = (total > 0) ? (100 * current) / total : 0;
+    int percent = (100 * current) / total;
 
     int progressWidth = (barWidth * percent) / 100;
     display.fillRect(barX, barY, progressWidth, barHeight, WHITE);
@@ -345,7 +412,6 @@ void updateCurrent() {
     if (totalSeconds < 10) display.print("0");
     display.println(totalSeconds);
 
-    delay(100);
     display.display();
 }
 
@@ -394,5 +460,13 @@ void loop() {
     if (millis() > nextCurrentCheck) {
         nextCurrentCheck = millis() + currentDelay;
         updateCurrent();
+    }
+
+    if (millis() > nextTimeCheck) {
+        nextTimeCheck = millis() + timeDelay;
+        updateTime(duration, progress);
+        if (!paused) {
+            progress++;
+        }
     }
 }
