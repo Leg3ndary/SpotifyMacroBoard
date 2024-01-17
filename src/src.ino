@@ -35,7 +35,7 @@ unsigned long nextTimeCheck = 0;
 const unsigned long timeDelay = 1000;
 
 String title, artist, album, color, durationRaw, progressRaw, pausedRaw,
-    volumeRaw, repeatRaw, shuffleRaw, lastTitle;
+    volumeRaw, lastTitle;
 int progress, duration, volume, lastVolume;
 bool paused;
 
@@ -263,13 +263,10 @@ void updateCurrent() {
     extractValue("progress", response, progressRaw);
     extractValue("paused", response, pausedRaw);
     extractValue("volume", response, volumeRaw);
-    extractValue("loop", response, repeatRaw);
-    extractValue("shuffle", response, shuffleRaw);
 
     paused = pausedRaw == "true";
     lastVolume = volume;
     volume = volumeRaw.toInt();
-    bool shuffle = shuffleRaw == "true";
     duration = durationRaw.toInt();
     progress = progressRaw.toInt();
 
