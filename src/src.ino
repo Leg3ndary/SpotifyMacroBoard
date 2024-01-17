@@ -39,6 +39,15 @@ String title, artist, album, color, durationRaw, progressRaw, pausedRaw,
 int progress, duration, volume, lastVolume;
 bool paused;
 
+int red = 0;
+int green = 255;
+int blue = 0;
+unsigned long lastFade = 0;
+const unsigned long fadeDelay = 4;
+bool shouldFade = false;
+int prevRed, prevGreen, prevBlue;
+int step;
+
 void setup() {
     for (int i = 0; i < 7; i++) {
         pinMode(keys[i], INPUT_PULLUP);
@@ -79,9 +88,7 @@ void setup() {
     while (WiFi.status() != WL_CONNECTED) {
         for (int times = 0; times < 20; times++) {
             for (int i = 0; i < RGB_LED_NUM; i++) {
-                byte brightness =
-                    140 +
-                    110 * sin(millis() / 250.0);
+                byte brightness = 140 + 110 * sin(millis() / 250.0);
                 LEDs[i] = CRGB::White;
                 LEDs[i].fadeToBlackBy(255 - brightness);
             }
@@ -274,12 +281,17 @@ void updateCurrent() {
         int commaIndex1 = color.indexOf(",");
         int commaIndex2 = color.indexOf(",", commaIndex1 + 1);
 
-        int red = color.substring(0, commaIndex1 + 1).toInt();
-        int green = color.substring(commaIndex1 + 1, commaIndex2 + 1).toInt();
-        int blue = color.substring(commaIndex2 + 1, color.length()).toInt();
+        shouldFade = true;
+        prevRed = red;
+        prevGreen = green;
+        prevBlue = blue;
 
-        for (int i = 0; i < RGB_LED_NUM; i++) LEDs[i] = CRGB(red, green, blue);
-        FastLED.show();
+        red = color.substring(0, commaIndex1 + 1).toInt();
+        green = color.substring(commaIndex1 + 1, commaIndex2 + 1).toInt();
+        blue = color.substring(commaIndex2 + 1, color.length()).toInt();
+
+        // for (int i = 0; i < RGB_LED_NUM; i++) LEDs[i] = CRGB(red, green,
+        // blue); FastLED.show();
     }
 
     display.setTextColor(WHITE);
@@ -297,6 +309,19 @@ void updateCurrent() {
     display.display();
 }
 
+bool fadeLED() {
+    if (step > 255) {
+        step = 0;
+        return false;
+    }
+    for (int i = 0; i < RGB_LED_NUM; i++) {
+        LEDs[i] = blend(CRGB(prevRed, prevGreen, prevBlue), CRGB(red, green, blue), step);
+    }
+    FastLED.show();
+    step += 1;
+    return true;
+}
+
 void updateTime(int total, int current) {
     display.fillRect(0, 48, 128, 16, BLACK);
 
@@ -310,7 +335,9 @@ void updateTime(int total, int current) {
     int barY = 56;
 
     display.drawRect(barX, barY, barWidth, barHeight, WHITE);
-
+    if (total <= 0) {
+        total = 1;
+    }
     int percent = (100 * current) / total;
 
     int progressWidth = (barWidth * percent) / 100;
@@ -395,5 +422,10 @@ void loop() {
         if (!paused) {
             progress++;
         }
+    }
+
+    if (shouldFade && millis() > lastFade) {
+        lastFade = millis() + fadeDelay;
+        shouldFade = fadeLED();
     }
 }
