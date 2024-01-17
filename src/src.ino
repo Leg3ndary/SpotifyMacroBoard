@@ -105,7 +105,6 @@ void setup() {
     }
 
     wifiClient.setCACert(benzServerCert);
-    updateCurrent();
 }
 
 void drawScreenOutline() {
@@ -289,9 +288,6 @@ void updateCurrent() {
         red = color.substring(0, commaIndex1 + 1).toInt();
         green = color.substring(commaIndex1 + 1, commaIndex2 + 1).toInt();
         blue = color.substring(commaIndex2 + 1, color.length()).toInt();
-
-        // for (int i = 0; i < RGB_LED_NUM; i++) LEDs[i] = CRGB(red, green,
-        // blue); FastLED.show();
     }
 
     display.setTextColor(WHITE);
@@ -315,7 +311,8 @@ bool fadeLED() {
         return false;
     }
     for (int i = 0; i < RGB_LED_NUM; i++) {
-        LEDs[i] = blend(CRGB(prevRed, prevGreen, prevBlue), CRGB(red, green, blue), step);
+        LEDs[i] = blend(CRGB(prevRed, prevGreen, prevBlue),
+                        CRGB(red, green, blue), step);
     }
     FastLED.show();
     step += 1;
