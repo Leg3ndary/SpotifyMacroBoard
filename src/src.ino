@@ -1,6 +1,7 @@
 /*
-Sketch uses 880481 bytes (67%) of program storage space. Maximum is 1310720 bytes.
-Global variables use 45824 bytes (13%) of dynamic memory, leaving 281856 bytes for local variables. Maximum is 327680 bytes.
+Sketch uses 880481 bytes (67%) of program storage space. Maximum is 1310720
+bytes. Global variables use 45824 bytes (13%) of dynamic memory, leaving 281856
+bytes for local variables. Maximum is 327680 bytes.
 */
 
 #include <Adafruit_GFX.h>
@@ -75,23 +76,26 @@ void setup() {
     display.println("Connecting to WiFi");
     display.display();
 
-    int ping = 0;
     while (WiFi.status() != WL_CONNECTED) {
-        for (int times = 0; times < 10; times++) {
-            ping++;
+        for (int times = 0; times < 20; times++) {
             for (int i = 0; i < RGB_LED_NUM; i++) {
-                if (i != ping) {
-                    LEDs[i] = CRGB::White;
-                } else {
-                    LEDs[i] = CRGB::Green;
-                }
+                byte brightness =
+                    140 +
+                    110 * sin(millis() / 250.0);
+                LEDs[i] = CRGB::White;
+                LEDs[i].fadeToBlackBy(255 - brightness);
             }
-            if (ping >= RGB_LED_NUM) ping = 0;
-            delay(50);
+            delay(25);
             FastLED.show();
         }
     }
-    for (int i = 0; i < RGB_LED_NUM; i++) LEDs[i] = CRGB::Green;
+    for (int step = 0; step < 256; step++) {
+        for (int i = 0; i < RGB_LED_NUM; i++) {
+            LEDs[i] = blend(CRGB::White, CRGB::Green, step);
+        }
+        delay(3);
+        FastLED.show();
+    }
 
     wifiClient.setCACert(benzServerCert);
     updateCurrent();
@@ -201,8 +205,8 @@ void updateState(char action, int subAction = 0) {
         yield();
     }
     wifiClient.print("GET /api/manageState/" + PASSWORD + "/" + actionString +
-                  " HTTP/1.1\r\n" + "Host: benzhou.tech\r\n" +
-                  "Connection: Keep-Alive\r\n\r\n");
+                     " HTTP/1.1\r\n" + "Host: benzhou.tech\r\n" +
+                     "Connection: Keep-Alive\r\n\r\n");
     wifiClient.flush();
 }
 
@@ -217,7 +221,8 @@ void updateCurrent() {
     }
 
     wifiClient.print("GET /api/getCurrent/" + PASSWORD + " HTTP/1.1\r\n" +
-                  "Host: benzhou.tech\r\n" + "Connection: Keep-Alive\r\n\r\n");
+                     "Host: benzhou.tech\r\n" +
+                     "Connection: Keep-Alive\r\n\r\n");
 
     unsigned long timeout = millis();
     while (!wifiClient.available()) {
