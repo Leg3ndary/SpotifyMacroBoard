@@ -21,29 +21,22 @@ const int keys[7] = {SHUFFLE, VOLUME_DEC, VOLUME_INC, LOOP,
 bool keyPrevState[7] = {HIGH, HIGH, HIGH, HIGH, HIGH, HIGH, HIGH};
 bool keyState[7] = {HIGH, HIGH, HIGH, HIGH, HIGH, HIGH, HIGH};
 
-CRGB LEDs[RGB_LED_NUM];
-
-unsigned long nextRSSICheck = 0;
 const unsigned long RSSIDelay = 10000;
-int rssi = 0;
-int lastRSSI = 0;
-
-unsigned long nextCurrentCheck = 0;
 const unsigned long currentDelay = 5000;
-
-unsigned long nextTimeCheck = 0;
 const unsigned long timeDelay = 1000;
+const unsigned long fadeDelay = 4;
+unsigned long nextRSSICheck, nextCurrentCheck, nextTimeCheck, nextFade;
 
 String title, artist, album, color, durationRaw, progressRaw, pausedRaw,
     volumeRaw, lastTitle;
 int progress, duration, volume, lastVolume;
 bool paused;
 
-int red = 0;
+int rssi = 0;
+
+CRGB LEDs[RGB_LED_NUM];
+int red, blue;
 int green = 255;
-int blue = 0;
-unsigned long lastFade = 0;
-const unsigned long fadeDelay = 4;
 bool shouldFade = false;
 int prevRed, prevGreen, prevBlue;
 int step;
@@ -82,9 +75,6 @@ void setup() {
     WiFi.mode(WIFI_STA);
     WiFi.begin(SSID, SSID_PASS);
 
-    display.println("Connecting to WiFi");
-    display.display();
-
     while (WiFi.status() != WL_CONNECTED) {
         for (int times = 0; times < 20; times++) {
             for (int i = 0; i < RGB_LED_NUM; i++) {
@@ -107,11 +97,10 @@ void setup() {
     wifiClient.setCACert(benzServerCert);
 }
 
-void drawScreenOutline() {
+void updateScreen() {
     display.setCursor(0, 0);
     display.setTextColor(WHITE);
     display.setTextWrap(false);
-
     display.setTextSize(2);
 
     for (int i = 0; i < 2; i++) {
@@ -274,24 +263,24 @@ void updateCurrent() {
         color = response.substring(response.indexOf("[") + 1,
                                    response.indexOf("]"));
 
-        int commaIndex1 = color.indexOf(",");
-        int commaIndex2 = color.indexOf(",", commaIndex1 + 1);
+        int comma1 = color.indexOf(",");
+        int comma2 = color.indexOf(",", comma1 + 1);
 
         shouldFade = true;
         prevRed = red;
         prevGreen = green;
         prevBlue = blue;
 
-        red = color.substring(0, commaIndex1 + 1).toInt();
-        green = color.substring(commaIndex1 + 1, commaIndex2 + 1).toInt();
-        blue = color.substring(commaIndex2 + 1, color.length()).toInt();
+        red = color.substring(0, comma1 + 1).toInt();
+        green = color.substring(comma1 + 1, comma2 + 1).toInt();
+        blue = color.substring(comma2 + 1, color.length()).toInt();
     }
 
     display.setTextColor(WHITE);
     display.setTextWrap(false);
     if (lastTitle != title) {
         display.clearDisplay();
-        drawScreenOutline();
+        updateScreen();
         display.setCursor(0, 16);
         display.setTextSize(2);
         display.println(title);
@@ -361,12 +350,12 @@ void shuffle() { updateState('f'); }
 
 void volumeDecrease() {
     updateState('v', 0);
-    drawScreenOutline();
+    updateScreen();
 }
 
 void volumeIncrease() {
     updateState('v', 1);
-    drawScreenOutline();
+    updateScreen();
 }
 
 void repeat() { updateState('r'); }
@@ -402,7 +391,7 @@ void loop() {
     if (millis() > nextRSSICheck) {
         nextRSSICheck = millis() + RSSIDelay;
         rssi = WiFi.RSSI();
-        drawScreenOutline();
+        updateScreen();
     }
 
     if (millis() > nextCurrentCheck) {
@@ -418,8 +407,8 @@ void loop() {
         }
     }
 
-    if (shouldFade && millis() > lastFade) {
-        lastFade = millis() + fadeDelay;
+    if (shouldFade && millis() > nextFade) {
+        nextFade = millis() + fadeDelay;
         shouldFade = fadeLED();
     }
 }

@@ -3,5 +3,6 @@
     "board": "esp32:esp32:esp32",
     "output": "../build",
     "programmer": "esptool",
-    "sketch": "src\\src.ino"
+    "sketch": "src\\src.ino",
+    "port": "COM3"
 }
