@@ -1,110 +1,41 @@
+/*
+Sketch uses 880481 bytes (67%) of program storage space. Maximum is 1310720 bytes.
+Global variables use 45824 bytes (13%) of dynamic memory, leaving 281856 bytes for local variables. Maximum is 327680 bytes.
+*/
+
 #include <Adafruit_GFX.h>
 #include <Adafruit_SSD1306.h>
 #include <FastLED.h>
-#include <SPI.h>
-#include <SpotifyCredentials.h>
+#include <SMBCredentials.h>
 #include <WiFi.h>
 #include <WiFiClientSecure.h>
 #include <Wire.h>
 
-#define RGB_PIN 18
-#define RGB_LED_NUM 20
-#define BRIGHTNESS 230
-#define CHIP_SET WS2812B
-#define COLOR_CODE GRB
-#define UPDATES_PER_SECOND 100
-#define SHUFFLE 4
-#define VOLUME_DEC 5
-#define VOLUME_INC 12
-#define LOOP 13
-#define BACK 14
-#define PAUSE_PLAY 25
-#define SKIP 26
-#define LED 18
-#define SCL 19
-#define SDA 21
-#define SCREEN_WIDTH 128
-#define SCREEN_HEIGHT 64
-#define OLED_RESET -1
-
-// 'wifi-logo', 16x16px
-const unsigned char wifi_logo[] PROGMEM = {
-    0xff, 0xff, 0xff, 0xff, 0xf0, 0x0f, 0xc1, 0x83, 0x9f, 0xf1, 0x38,
-    0x1c, 0xe1, 0x87, 0xcf, 0xf3, 0xd8, 0x1b, 0xf1, 0x8f, 0xf3, 0xcf,
-    0xfe, 0x7f, 0xfc, 0x3f, 0xfe, 0x7f, 0xff, 0xff, 0xff, 0xff};
-
-// 'wifi-logo2', 16x16px
-const unsigned char wifi_logo2[] PROGMEM = {
-    0xff, 0xff, 0xff, 0xff, 0xff, 0xff, 0xff, 0xff, 0xff, 0xff, 0xf8,
-    0x1f, 0xe1, 0x87, 0xcf, 0xf3, 0xd8, 0x1b, 0xf1, 0x8f, 0xf3, 0xcf,
-    0xfe, 0x7f, 0xfc, 0x3f, 0xfe, 0x7f, 0xff, 0xff, 0xff, 0xff};
-
-const unsigned char wifi_logo3[] PROGMEM = {
-    0xff, 0xff, 0xff, 0xff, 0xff, 0xff, 0xff, 0xff, 0xff, 0xff, 0xff,
-    0xff, 0xff, 0xff, 0xff, 0xff, 0xf8, 0x1f, 0xf1, 0x8f, 0xf3, 0xcf,
-    0xfe, 0x7f, 0xfc, 0x3f, 0xfe, 0x7f, 0xff, 0xff, 0xff, 0xff};
-
-// 'volume-up', 16x18px
-const unsigned char volume_3[] PROGMEM = {
-    0xff, 0xff, 0xff, 0xf7, 0xff, 0xf3, 0xf9, 0xf9, 0xf1, 0xcd, 0x01, 0xe4,
-    0x01, 0xb4, 0x01, 0x96, 0x01, 0x96, 0x01, 0xb4, 0x01, 0xe4, 0xf1, 0xcd,
-    0xf9, 0xd9, 0xff, 0xf3, 0xff, 0xf7, 0xff, 0xff, 0xff, 0xff, 0xff, 0xff};
-// 'volume-2', 16x16px
-const unsigned char volume_2[] PROGMEM = {
-    0xff, 0xff, 0xff, 0xff, 0xff, 0xff, 0xf9, 0xff, 0xf1, 0xcf, 0x01,
-    0xe7, 0x01, 0xb7, 0x01, 0x97, 0x01, 0x97, 0x01, 0xb7, 0x01, 0xe7,
-    0xf1, 0xcf, 0xf9, 0xdf, 0xff, 0xff, 0xff, 0xff, 0xff, 0xff};
-
-// 'volume-1', 16x16px
-const unsigned char volume_1[] PROGMEM = {
-    0xff, 0xff, 0xff, 0xff, 0xff, 0xff, 0xf9, 0xff, 0xf1, 0xff, 0x01,
-    0xff, 0x01, 0xbf, 0x01, 0x9f, 0x01, 0x9f, 0x01, 0xbf, 0x01, 0xff,
-    0xf1, 0xff, 0xf9, 0xff, 0xff, 0xff, 0xff, 0xff, 0xff, 0xff};
-
-// 'volume-0', 16x16px
-const unsigned char volume_0[] PROGMEM = {
-    0xff, 0xff, 0xff, 0xff, 0xff, 0xff, 0xf9, 0xff, 0xf1, 0xff, 0x01,
-    0xff, 0x01, 0xff, 0x01, 0xff, 0x01, 0xff, 0x01, 0xff, 0x01, 0xff,
-    0xf1, 0xff, 0xf9, 0xff, 0xff, 0xff, 0xff, 0xff, 0xff, 0xff};
-
-WiFiClientSecure bClient;
+WiFiClientSecure wifiClient;
 TwoWire I2C = TwoWire(0);
-
 Adafruit_SSD1306 display(SCREEN_WIDTH, SCREEN_HEIGHT, &I2C, OLED_RESET);
-
-bool shuffleState = false;
-byte repeatState = 0;
-int rssi = 0;
 
 const int keys[7] = {SHUFFLE, VOLUME_DEC, VOLUME_INC, LOOP,
                      BACK,    PAUSE_PLAY, SKIP};
 bool keyPrevState[7] = {HIGH, HIGH, HIGH, HIGH, HIGH, HIGH, HIGH};
 bool keyState[7] = {HIGH, HIGH, HIGH, HIGH, HIGH, HIGH, HIGH};
 
-// Define the array of LEDs
 CRGB LEDs[RGB_LED_NUM];
 
-// define 3 byte for the random color
-byte a, b, c;
-
-// WIFI STUFF
 unsigned long nextRSSICheck = 0;
-unsigned long RSSIDelay = 10000;
+const unsigned long RSSIDelay = 10000;
+int rssi = 0;
 int lastRSSI = 0;
 
-// Curret check
 unsigned long nextCurrentCheck = 0;
-unsigned long currentDelay = 5000;
+const unsigned long currentDelay = 5000;
 
-// Time check
 unsigned long nextTimeCheck = 0;
-unsigned long timeDelay = 1000;
+const unsigned long timeDelay = 1000;
 
 String title, artist, album, color, durationRaw, progressRaw, pausedRaw,
     volumeRaw, repeatRaw, shuffleRaw, lastTitle;
-
-int progress, duration, volume;
-int lastVolume;
+int progress, duration, volume, lastVolume;
 bool paused;
 
 void setup() {
@@ -162,7 +93,7 @@ void setup() {
     }
     for (int i = 0; i < RGB_LED_NUM; i++) LEDs[i] = CRGB::Green;
 
-    bClient.setCACert(benzServerCert);
+    wifiClient.setCACert(benzServerCert);
     updateCurrent();
 }
 
@@ -190,11 +121,11 @@ void drawScreenOutline() {
     }
 
     if (rssi == 0) {
-        display.drawBitmap(2, 0, wifi_logo3, 16, 16, WHITE);
+        display.drawBitmap(2, 0, wifi_0, 16, 16, WHITE);
     } else if (rssi < -70) {
-        display.drawBitmap(2, 0, wifi_logo2, 16, 16, WHITE);
+        display.drawBitmap(2, 0, wifi_1, 16, 16, WHITE);
     } else {
-        display.drawBitmap(2, 0, wifi_logo, 16, 16, WHITE);
+        display.drawBitmap(2, 0, wifi_2, 16, 16, WHITE);
     }
 
     for (int i = 64; i < 108; i++) {
@@ -207,19 +138,16 @@ void drawScreenOutline() {
             display.drawPixel(i, j, BLACK);
         }
     }
-    int start = 124;
-
-    if (volume == 0) {
-        display.drawBitmap(108, 0, volume_0, 16, 18, WHITE);
-        start = 122;
-    } else if (volume < 33) {
-        display.drawBitmap(108, 0, volume_1, 16, 16, WHITE);
-    } else if (volume < 66) {
-        display.drawBitmap(108, 0, volume_2, 16, 16, WHITE);
-    } else {
+    if (volume > 66) {
         display.drawBitmap(108, 0, volume_3, 16, 16, WHITE);
+    } else if (volume > 33) {
+        display.drawBitmap(108, 0, volume_2, 16, 16, WHITE);
+    } else if (volume > 0) {
+        display.drawBitmap(108, 0, volume_1, 16, 16, WHITE);
+    } else {
+        display.drawBitmap(108, 0, volume_0, 16, 16, WHITE);
     }
-    for (int i = start; i < 128; i++) {
+    for (int i = 124; i < 128; i++) {
         for (int j = 0; j < 16; j++) {
             display.drawPixel(i, j, WHITE);
         }
@@ -229,31 +157,20 @@ void drawScreenOutline() {
 }
 
 void extractValue(const String& key, const String& json, String& result) {
-    String keyWithQuotes = "\"" + key + "\":";
-    int start = json.indexOf(keyWithQuotes);
+    String quoteKey = "\"" + key + "\":";
+    int start = json.indexOf(quoteKey);
     if (start != -1) {
-        int end = json.indexOf(",", start + keyWithQuotes.length());
+        int end = json.indexOf(",", start + quoteKey.length());
         if (end == -1) {
-            end = json.indexOf("}", start + keyWithQuotes.length());
+            end = json.indexOf("}", start + quoteKey.length());
         }
-        result = json.substring(start + keyWithQuotes.length(), end);
+        result = json.substring(start + quoteKey.length(), end);
         result.trim();
         result.remove(0, 1);
         result.remove(result.length() - 1);
     }
 }
 
-/* Actions are as follows
-p = playPause
-b = back
-s = skip
-r = repeat
-v = volume
-    0 = decrease
-    1 = increase
-l = loop
-f = shuffle
-*/
 void updateState(char action, int subAction = 0) {
     String actionString = "";
     if (action == 'p') {
@@ -275,23 +192,23 @@ void updateState(char action, int subAction = 0) {
     } else if (action == 'f') {
         actionString = "shuffle";
     }
-    if (!bClient.connected()) {
-        if (!bClient.connect("benzhou.tech", 443)) {
+    if (!wifiClient.connected()) {
+        if (!wifiClient.connect("benzhou.tech", 443)) {
             for (int i = 0; i < RGB_LED_NUM; i++) LEDs[i] = CRGB::Red;
             FastLED.show();
             return;
         }
         yield();
     }
-    bClient.print("GET /api/manageState/" + PASSWORD + "/" + actionString +
+    wifiClient.print("GET /api/manageState/" + PASSWORD + "/" + actionString +
                   " HTTP/1.1\r\n" + "Host: benzhou.tech\r\n" +
                   "Connection: Keep-Alive\r\n\r\n");
-    bClient.flush();
+    wifiClient.flush();
 }
 
 void updateCurrent() {
-    if (!bClient.connected()) {
-        if (!bClient.connect("benzhou.tech", 443)) {
+    if (!wifiClient.connected()) {
+        if (!wifiClient.connect("benzhou.tech", 443)) {
             for (int i = 0; i < RGB_LED_NUM; i++) LEDs[i] = CRGB::Red;
             FastLED.show();
             return;
@@ -299,11 +216,11 @@ void updateCurrent() {
         yield();
     }
 
-    bClient.print("GET /api/getCurrent/" + PASSWORD + " HTTP/1.1\r\n" +
+    wifiClient.print("GET /api/getCurrent/" + PASSWORD + " HTTP/1.1\r\n" +
                   "Host: benzhou.tech\r\n" + "Connection: Keep-Alive\r\n\r\n");
 
     unsigned long timeout = millis();
-    while (!bClient.available()) {
+    while (!wifiClient.available()) {
         if (millis() - timeout > 5000) {
             for (int i = 0; i < RGB_LED_NUM; i++) LEDs[i] = CRGB::Yellow;
             FastLED.show();
@@ -313,19 +230,19 @@ void updateCurrent() {
     yield();
 
     char endOfHeaders[] = "\r\n\r\n";
-    if (!bClient.find(endOfHeaders)) {
+    if (!wifiClient.find(endOfHeaders)) {
         for (int i = 0; i < RGB_LED_NUM; i++) LEDs[i] = CRGB::Orange;
         FastLED.show();
         return;
     }
-    bClient.find("{\"ti");
+    wifiClient.find("{\"ti");
 
     String response = "{\"ti";
-    while (bClient.available()) {
-        char c = bClient.read();
+    while (wifiClient.available()) {
+        char c = wifiClient.read();
         response += c;
     }
-    bClient.flush();
+    wifiClient.flush();
 
     lastTitle = title;
     extractValue("title", response, title);
@@ -376,7 +293,6 @@ void updateCurrent() {
 }
 
 void updateTime(int total, int current) {
-    // Clearing bottom half of display
     display.fillRect(0, 48, 128, 16, BLACK);
 
     if (current > total) {
@@ -417,9 +333,15 @@ void updateTime(int total, int current) {
 
 void shuffle() { updateState('f'); }
 
-void volumeDecrease() { updateState('v', 0); }
+void volumeDecrease() {
+    updateState('v', 0);
+    drawScreenOutline();
+}
 
-void volumeIncrease() { updateState('v', 1); }
+void volumeIncrease() {
+    updateState('v', 1);
+    drawScreenOutline();
+}
 
 void repeat() { updateState('r'); }
 
