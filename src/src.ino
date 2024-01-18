@@ -274,11 +274,9 @@ void updateCurrent() {
         red = color.substring(0, comma1 + 1).toInt();
         green = color.substring(comma1 + 1, comma2 + 1).toInt();
         blue = color.substring(comma2 + 1, color.length()).toInt();
-    }
 
-    display.setTextColor(WHITE);
-    display.setTextWrap(false);
-    if (lastTitle != title) {
+        display.setTextColor(WHITE);
+        display.setTextWrap(false);
         display.clearDisplay();
         updateScreen();
         display.setCursor(0, 16);
